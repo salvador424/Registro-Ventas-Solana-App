@@ -49,27 +49,31 @@ import {
   getCambiarMontoInstruction,
   getCrearClienteInstruction,
   getCrearRegistroInstruction,
+  getEliminarClienteInstruction,
   getHacerDevolucionInstruction,
   getRegistrarVentaInstruction,
   parseCambiarMontoInstruction,
   parseCrearClienteInstruction,
   parseCrearRegistroInstruction,
+  parseEliminarClienteInstruction,
   parseHacerDevolucionInstruction,
   parseRegistrarVentaInstruction,
   type CambiarMontoInput,
   type CrearClienteInput,
   type CrearRegistroInput,
+  type EliminarClienteInput,
   type HacerDevolucionInput,
   type ParsedCambiarMontoInstruction,
   type ParsedCrearClienteInstruction,
   type ParsedCrearRegistroInstruction,
+  type ParsedEliminarClienteInstruction,
   type ParsedHacerDevolucionInstruction,
   type ParsedRegistrarVentaInstruction,
   type RegistrarVentaInput,
 } from "../instructions";
 
 export const REGISTRO_PROGRAM_ADDRESS =
-  "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY" as Address<"38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY">;
+  "AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF" as Address<"AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF">;
 
 export enum RegistroAccount {
   Registro,
@@ -126,6 +130,7 @@ export enum RegistroInstruction {
   RegistrarVenta,
   HacerDevolucion,
   CambiarMonto,
+  EliminarCliente,
 }
 
 export function identifyRegistroInstruction(
@@ -187,6 +192,17 @@ export function identifyRegistroInstruction(
   ) {
     return RegistroInstruction.CambiarMonto;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([205, 132, 251, 133, 247, 51, 204, 55]),
+      ),
+      0,
+    )
+  ) {
+    return RegistroInstruction.EliminarCliente;
+  }
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
     { instructionData: data, programName: "registro" },
@@ -194,7 +210,7 @@ export function identifyRegistroInstruction(
 }
 
 export type ParsedRegistroInstruction<
-  TProgram extends string = "38oTMyvUTmqkBQeMiuok5F2mPjp9dVadWdBeQTDNmTUY",
+  TProgram extends string = "AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF",
 > =
   | ({
       instructionType: RegistroInstruction.CrearRegistro;
@@ -210,7 +226,10 @@ export type ParsedRegistroInstruction<
     } & ParsedHacerDevolucionInstruction<TProgram>)
   | ({
       instructionType: RegistroInstruction.CambiarMonto;
-    } & ParsedCambiarMontoInstruction<TProgram>);
+    } & ParsedCambiarMontoInstruction<TProgram>)
+  | ({
+      instructionType: RegistroInstruction.EliminarCliente;
+    } & ParsedEliminarClienteInstruction<TProgram>);
 
 export function parseRegistroInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -250,6 +269,13 @@ export function parseRegistroInstruction<TProgram extends string>(
       return {
         instructionType: RegistroInstruction.CambiarMonto,
         ...parseCambiarMontoInstruction(instruction),
+      };
+    }
+    case RegistroInstruction.EliminarCliente: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RegistroInstruction.EliminarCliente,
+        ...parseEliminarClienteInstruction(instruction),
       };
     }
     default:
@@ -301,6 +327,11 @@ export type RegistroPluginInstructions = {
     input: CambiarMontoInput,
     config?: { programAddress?: Address | HasAddress },
   ) => ReturnType<typeof getCambiarMontoInstruction> & SelfPlanAndSendFunctions;
+  eliminarCliente: (
+    input: EliminarClienteInput,
+    config?: { programAddress?: Address | HasAddress },
+  ) => ReturnType<typeof getEliminarClienteInstruction> &
+    SelfPlanAndSendFunctions;
 };
 
 export type RegistroPluginRequirements = ClientWithRpc<
@@ -359,6 +390,14 @@ export function registroProgram(
             addSelfPlanAndSendFunctions(
               client,
               getCambiarMontoInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              }),
+            ),
+          eliminarCliente: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getEliminarClienteInstruction(input, {
                 programAddress:
                   instructionConfig?.programAddress ?? config.programAddress,
               }),

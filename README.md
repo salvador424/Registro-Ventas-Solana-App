@@ -1,178 +1,158 @@
-# Registro de Ventas · App
+# Registro de ventas en Solana — Proyecto final (Ruta B)
 
-![Registro de Ventas · App — Solana, TypeScript y React](./images/banner-app.png)
+Proyecto final del **Solana Engineering Track: Advanced** de WayLearn.
 
-Frontend educativo desarrollado con **TypeScript y React** para interactuar con el programa [Registro de Ventas con PDAs](https://github.com/WayLearnLatam/Registro-Ventas-Solana-PDA) en **Solana Devnet**.
+| | |
+|---|---|
+| **Ruta elegida** | **B — Proyecto guiado con mejora funcional** |
+| **Nombre para el certificado** | Jesus Salvador Juárez Maya |
+| **Correo del registro** | jjjuarezmaya@gmail.com |
+| **Red** | Devnet |
+| **Program ID** | [`AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF`](https://explorer.solana.com/address/AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF?cluster=devnet) |
 
-Forma parte del **Solana Engineering Track: Advanced** de WayLearn. Aquí conectamos lo aprendido sobre cuentas, instrucciones y PDAs con una aplicación que se utiliza desde el navegador.
+## Propósito
 
-Puedes comenzar haciendo **Fork** de este repositorio. Hemos preparado un entorno de **GitHub Codespaces** para que puedas concentrarte en los ejercicios sin instalar las herramientas del frontend en tu computadora. 🚀
+Aplicación para llevar el registro de ventas de un negocio en Solana. Un **Registro** (negocio) tiene **Clientes**, y cada cliente tiene **Ventas** activas. Todas son cuentas PDA derivadas de su cuenta padre:
 
-> 📖 Sigue las explicaciones y actividades en el [GitBook de Advanced](https://waylearn.gitbook.io/solana-engineering-track-advanced).
-
-## ¿Qué puedes hacer con la app?
-
-- Conectar una wallet y consultar saldos de Devnet.
-- Consultar un registro de ventas, sus clientes y las ventas activas de cada uno.
-- Crear un negocio y dar de alta a sus clientes.
-- Registrar ventas, corregir su importe y realizar devoluciones.
-- Revisar solicitudes de firma, confirmaciones y errores de las transacciones.
-
-El recorrido del proyecto sigue esta relación:
-
-**Registro del negocio → Clientes → Ventas**
-
-Cada entidad tiene su propia cuenta. El frontend deriva sus direcciones y utiliza el cliente generado a partir del IDL para leer datos y construir instrucciones.
-
-> ℹ️ El importe de una venta es un dato del ejercicio: **no cobra ni transfiere SOL o tokens**. La devolución elimina la venta del historial activo y cierra su cuenta; no realiza un reembolso comercial.
-
-## Antes de comenzar
-
-Necesitas una cuenta de GitHub y, para las operaciones que requieren firma, una wallet de navegador compatible con Solana y SOL de prueba en **Devnet**.
-
-Es recomendable tener conocimientos básicos de JavaScript o TypeScript y haber revisado el modelo de cuentas del [programa base](https://github.com/WayLearnLatam/Registro-Ventas-Solana-PDA).
-
-**No necesitas la Solana CLI para ejecutar este frontend.** Puedes trabajar con el programa desplegado desde Solana Playground.
-
-## Comenzar con Codespaces
-
-### 1. Crea tu copia
-
-Haz clic en **Fork**, en la parte superior de este repositorio, para crear una copia en tu cuenta. Así podrás guardar tus cambios y continuar con tu proyecto.
-
-### 2. Abre el entorno
-
-Desde tu copia, selecciona **Code → Codespaces → Create codespace on main**.
-
-Espera a que termine la preparación. El contenedor incluye Node 22 y ejecuta automáticamente la instalación de dependencias y la generación del cliente.
-
-### 3. Inicia la app
-
-En la terminal de Codespaces ejecuta:
-
-```bash
-npm run dev
+```
+registro <- ["registro", nombre_negocio, owner]
+cliente  <- ["cliente",  registro, id_cliente (u16 LE)]
+venta    <- ["venta",    cliente,  sku]
 ```
 
-### 4. Ábrela en tu navegador
+Solo la wallet `owner` del registro puede escribir (`has_one = owner`).
 
-En la pestaña **Ports / Puertos**, localiza el **5173** y selecciona **Open in Browser**.
+## Versión de partida
 
-Abre la aplicación en una pestaña normal del navegador donde tienes instalada tu wallet. La vista incrustada del editor puede no detectar la extensión. El puerto puede permanecer privado; utiliza la misma cuenta de GitHub para acceder.
+- **Programa:** [WayLearnLatam/Registro-Ventas-Solana-PDA](https://github.com/WayLearnLatam/Registro-Ventas-Solana-PDA), con las cinco instrucciones base: `crear_registro`, `crear_cliente`, `registrar_venta`, `cambiar_monto` y `hacer_devolucion`.
+- **Frontend:** este repositorio (fork de [WayLearnLatam/Registro-Ventas-Solana-App](https://github.com/WayLearnLatam/Registro-Ventas-Solana-App)), partiendo de `npm run clase:resuelto` (base del día 4).
 
-> 💡 Al terminar, detén el Codespace desde el menú de Codespaces para evitar consumir tiempo de cómputo mientras no lo utilizas.
+## Qué se añadió (aporte propio)
 
-## Ejecutar en tu computadora
+### 1. Baja de cliente (base obligatoria del día 5)
 
-Si prefieres trabajar en local, utiliza **Node.js 22.12 o superior de la rama 22** y npm. Clona tu fork o utiliza directamente el repositorio original:
+**Programa**: `programa/src/lib.rs`. Instrucción nueva: `eliminar_cliente(id_cliente: u16)` con su contexto `EliminarCliente`.
 
-```bash
-git clone https://github.com/WayLearnLatam/Registro-Ventas-Solana-App.git
-cd Registro-Ventas-Solana-App
-npm ci
-npm run cliente
-npm run dev
+- **Autoridad:** `owner` firma y `has_one = owner @ NoOwner`.
+- **PDA del cliente:** se valida con las mismas semillas del proyecto (`registro` + `id_cliente`).
+- **Pertenencia:** el cliente debe estar en `registro.clientes`, o la instrucción falla con `ClienteNoRegistrado`.
+- **Precondición:** `cliente.historial.is_empty() && cliente.compras == 0`, o la instrucción falla con `ClienteConVentas`.
+- **Índice:** se retira solo la dirección de ese cliente de `registro.clientes`.
+- **Cierre:** `close = owner`; el rent vuelve a la autoridad.
+- **Contador:** `id_counter` **no se modifica**, así que los IDs no se reutilizan.
+- **Atomicidad:** validación, índice y cierre ocurren en una sola instrucción. Si algo falla, no cambia nada.
+
+**Frontend:**
+- `src/solana/acciones.ts`: nueva función `eliminarCliente()`, con los mismos validadores, PDAs, el constructor generado `getEliminarClienteInstruction` y `enviar`.
+- `src/components/Registro.tsx`: nueva pestaña **"Baja de cliente"**, que solo pide el ID del cliente y reutiliza los estados de firma, confirmación, error y recarga.
+
+### 2. Mejora funcional: validación de monto en Rust
+
+`#[max_len]` solo reserva espacio y no valida reglas de negocio. Se añadió la regla **"el monto debe ser mayor a 0"** directamente en el programa:
+
+- `registrar_venta`: `require!(monto > 0, Errores::MontoInvalido)`.
+- `cambiar_monto`: `require!(nuevo_monto > 0, Errores::MontoInvalido)`.
+
+Así el programa protege el dato aunque alguien envíe la transacción sin pasar por el frontend. Su caso de rechazo está comprobado en Devnet (R1 y R2, más abajo).
+
+### 3. Mejora en el manejo de errores del frontend
+
+**Problema detectado:** cuando el programa rechazaba una operación, Solflare solo devolvía `Internal error`, y el usuario no sabía por qué ([captura antes](evidencias/capturas/03a-baja-rechazada-antes-internal-error.png)).
+
+**Corrección** (`src/solana/tx.ts`): antes de pedir la firma, `enviar()` **simula la transacción contra el programa desplegado**. Si el programa la rechaza, se lanza `ErrorSimulacion` con los logs, y `traducir()` muestra el error real del IDL en español. Por ejemplo: *"ClienteConVentas: Error, el cliente tiene ventas activas y no puede darse de baja"* ([captura después](evidencias/capturas/03b-baja-rechazada-clienteconventas.png)). Además, la wallet ya no pide firmar una operación que va a fallar.
+
+### Errores del programa
+
+Los dos errores originales conservan su orden, y los nuevos se agregaron al final:
+
+| Código | Nombre | Uso |
+|---|---|---|
+| 6000 | `NoOwner` | La wallet no es la autoridad del registro |
+| 6001 | `NoSKU` | La venta no está en el historial del cliente |
+| 6002 | `ClienteConVentas` | **Nuevo.** Baja de un cliente con ventas activas |
+| 6003 | `ClienteNoRegistrado` | **Nuevo.** El cliente no está en el índice del registro |
+| 6004 | `MontoInvalido` | **Nuevo (mejora).** Monto igual a 0 |
+
+## Estructura relevante
+
+```
+programa/src/lib.rs                 Programa Anchor (desplegado en Devnet)
+programa/client/pruebas_rechazo.ts  Pruebas controladas para Solana Playground
+idl.json                            IDL exportado del despliegue
+src/config/programa.json            Program ID configurado
+clients/js/src/generated/           Cliente generado con Codama (incluye eliminarCliente.ts)
+src/solana/acciones.ts              Operaciones del frontend (+ eliminarCliente)
+src/solana/tx.ts                    Envío, simulación previa y traducción de errores
+src/components/Registro.tsx         Interfaz (+ pestaña "Baja de cliente")
+evidencias/                         Salida de pruebas y capturas
 ```
 
-Abre `http://localhost:5173` en el navegador con tu wallet instalada.
+## Configuración y ejecución
 
-En Windows puedes ejecutar estos comandos desde WSL. El repositorio también incluye una configuración de Dev Container para VS Code, si ya utilizas Docker y la extensión Dev Containers.
+### Requisitos
+- Wallet de navegador (Solflare) en **Devnet**, con SOL de prueba (https://faucet.solana.com).
+- GitHub Codespaces (recomendado) o Dev Containers en local.
 
-## Conectar el programa de Solana
+### Programa (Solana Playground)
+1. Abrir https://beta.solpg.io e importar `programa/src/lib.rs`.
+2. **Build** y **Deploy** en Devnet. Para revisar no hace falta desplegar: el programa ya está desplegado con el Program ID de arriba.
 
-El frontend y el programa son dos partes del mismo proyecto:
-
-| Parte | Responsabilidad |
-| --- | --- |
-| [Programa Rust + Anchor](https://github.com/WayLearnLatam/Registro-Ventas-Solana-PDA) | Define las cuentas, ejecuta instrucciones y valida permisos. |
-| Este frontend | Lee cuentas, construye instrucciones y solicita a la wallet que firme las transacciones. |
-| IDL y cliente generado | Describen la interfaz del programa y permiten utilizarla desde TypeScript. |
-
-### Si aparece «programa de referencia»
-
-El repositorio incluye un **IDL de referencia** para estudiar la estructura y generar el cliente. Con esa configuración puedes conectar tu wallet y consultar saldos; la consulta del registro y sus operaciones permanecen bloqueadas hasta importar el IDL del despliegue que utilizarás.
-
-Si la versión de clase ya viene configurada para el programa correspondiente, puedes continuar con las actividades sin repetir este paso.
-
-### Importar tu IDL
-
-Exporta desde Playground el IDL del programa que realmente compilaste y desplegaste en **Devnet**. Coloca el JSON dentro de tu espacio de trabajo, por ejemplo en `tmp-idl/registro.json`, y ejecuta desde la raíz:
-
+### Frontend
 ```bash
-npm run configurar:idl -- ./tmp-idl/registro.json
+npm install
+npm run comprobar:idl   # Comprueba que IDL, Program ID y cliente generado coinciden
+npm run verificar       # Comprobaciones del template
+npm run dev             # Abre el puerto 5173
 ```
+En la app: **Conectar wallet** (Solflare, Devnet) → escribir el nombre del negocio → **Consultar registro**.
 
-Si el archivo no incluye la dirección del programa, agrega su Program ID público:
+## Cómo probarlo
 
-```bash
-npm run configurar:idl -- ./tmp-idl/registro.json --program-id TU_PROGRAM_ID
-```
+### A. Desde la app (autoridad `9Atc7gce2GBAVxLKsxPCMVERMyd4ZdWAu7QuJwTqnB9z`, negocio `Cafe WayLearn D1`)
 
-El comando comprueba la estructura esperada, importa el IDL y regenera el cliente. Detén el servidor con `Ctrl+C` y vuelve a ejecutar `npm run dev` después de la importación.
+| # | Caso | Resultado observado | Evidencia |
+|---|---|---|---|
+| 1 | Crear registro | Registro creado, legible desde la app | [tx](https://explorer.solana.com/tx/2XiJEThA4iHVPTCJsAtAxLCZVkpHYjSmAhzfcPkiy4QFnpiTYjNS7cK5n8Jf27vLeCPWpzuufxnHKH5oQqQa3kWf?cluster=devnet) |
+| 2 | Crear cliente "Salvador" | Cliente #1, último ID asignado = 1 | [tx](https://explorer.solana.com/tx/6SUotT84MKpuZHMNDbPd4zTkynhbHZ9sNArLmGviNQgsMNMY5yN4gxgKkh6e9514DHwhouSpZscsRcTMkDuLEjy?cluster=devnet) · [captura](evidencias/capturas/01-cliente-1-salvador.png) |
+| 3 | Crear cliente "Jose" | Cliente #2, 0 ventas | [tx](https://explorer.solana.com/tx/8AMgtayKhGrAyDyKkKS7xEgwDJWAj1rQLkUGbb4221GrXBpGBGsXypaM9Y1nCUEsq2MvXQ43HaJqJJUHjsycVQd?cluster=devnet) |
+| 4 | Registrar venta CAF01 (35) a Salvador | Venta creada; Salvador con 1 venta activa | [tx](https://explorer.solana.com/tx/UrCPrEoroyXsNm4cKqWoUaeDuRgzHabcyy9ber3RCUWF9ZRcGxxY5jwVzRSM9Y5mZtRRtAQ9QCD8kuauKgEheq1?cluster=devnet) |
+| 5 | Corregir importe CAF01: 35 → 50 | Cambia el monto de la misma venta y conserva la relación | [tx](https://explorer.solana.com/tx/27GWiBGDqhrkbbkBMNhmHquVzKh62Zf7ZHtTcXHcyzTpdZwBs5UaHC7nCArZ3Z59jYJ5CzY1wx5TTQZAmCR3McvM?cluster=devnet) · [captura](evidencias/capturas/02-corregir-importe.png) |
+| 6 | Devolución CAF01 de Salvador | Venta cerrada; Salvador con 0 ventas | [tx](https://explorer.solana.com/tx/5UszTacJzoK4XYGVijDndW7N7Ue6hvLbcvmvFC9t6frjTc3eJS1qFfyVn2Rr2Uw2zxgMJmWYimo5oA6cQwngSBhP?cluster=devnet) |
+| 7 | Registrar venta PAN01 (20) a Jose | Jose con 1 venta activa | [tx](https://explorer.solana.com/tx/Fa6bbxL5jiy4yLGPna5de1is5K3tdCpHJL99NnyB3DKhi7KANmGTyY2kHeKdBakwqPx2oFnd6enLxwjp8pJ1Zpv?cluster=devnet) |
+| 8 | **Rechazo:** baja de Jose con venta activa | El programa rechaza en la simulación previa con `ClienteConVentas`; Jose y PAN01 se conservan | [captura](evidencias/capturas/03b-baja-rechazada-clienteconventas.png) |
+| 9 | Baja de Salvador (sin ventas) | Cuenta cerrada, se retira del registro y Jose queda intacto | [tx](https://explorer.solana.com/tx/5vgftjDhNH3JAFH2zvMCe2WpvjWgBSVngkdZnxzQDruqAbYFj2GWw9tX4FUBjoKHF1HCTZ9NJqPTjhsqTcM8oToS?cluster=devnet) · [captura](evidencias/capturas/04-baja-valida-salvador.png) |
+| 10 | Crear cliente "Maria" después de la baja | Cliente **#3**: el contador no retrocedió | [tx](https://explorer.solana.com/tx/2ymdbtNgicczTriA4LVFN4eHP6o7gs1KcBmtHQvCvWL3Kpn3JxJr4a4JBZTLQbPGWK5RAmxZ45R8USN6DBZTcgky?cluster=devnet) · [captura](evidencias/capturas/05-maria-cliente-3.png) |
 
-**No edites manualmente el cliente generado.** Si cambias el IDL, ejecuta `npm run cliente`. Conserva juntos en tu repositorio `idl.json`, `src/config/programa.json` y `clients/js/`.
+El caso 8 se rechaza en la simulación previa, así que no genera una transacción consultable. Se conserva el error y se comprobó que el estado no cambió. El mismo caso con transacción fallida en cadena está en R5.
 
-> 🔎 La wallet de Playground y la del navegador pueden ser distintas. Como la autoridad participa en la PDA, lo más sencillo es crear un negocio nuevo desde la app con la wallet del navegador. No necesitas trasladar claves privadas entre entornos.
+### B. Solicitudes controladas (Solana Playground)
 
-Consulta la [guía de IDL y Playground](./docs/IDL-Y-PLAYGROUND.md) si necesitas revisar la configuración.
+`programa/client/pruebas_rechazo.ts` envía las instrucciones directamente al programa, sin las validaciones del frontend, con `skipPreflight: true`, para que **cada rechazo quede como transacción fallida consultable en Explorer**. Crea un negocio de pruebas propio (`Pruebas 49061`, autoridad `n7ZGjfmJCCaYsKSLsVLrkGyfJoBH327oMdQuvQZXkSf`) y lee el estado después de cada rechazo.
 
-## Seguir las sesiones
+**Uso:** pegar el archivo en `client/client.ts` del proyecto de Playground y presionar **Run**. La salida completa está en [`evidencias/salida_pruebas_playground.txt`](evidencias/salida_pruebas_playground.txt).
 
-El proyecto utiliza el mismo frontend durante ambos días. Puedes elegir el punto de partida con estos comandos:
+| Caso | Esperado | Obtenido | Estado después | Evidencia |
+|---|---|---|---|---|
+| Preparación: registro, Ana #1, Luis #2, venta CAF01 (50) | ok | ok | — | [1](https://explorer.solana.com/tx/5aAwRKtACHAEkzQDydfH8xdtt1ioQRi3Gzy5UJfvAWAXAioZpoMe3MQPqDdAe4gWV9Ycm8wNCZHxsxQ7JzYqZicv?cluster=devnet) · [2](https://explorer.solana.com/tx/3CaQpkeiD4TAK4R2rKLNtiJ2a8gF7b2Yy9MS7M2MAUBD6noV6gadxQSzPeLWt5cywM1RN6J7YrhWnh7Mynhuap4S?cluster=devnet) · [3](https://explorer.solana.com/tx/5o3dBtuzSmfAD9F8wx48Vx85akkzbLh7oduMscWJsKzA6KKsjTpRQXSQrjCtGJZtqYWznyqhBgUWWHE29ycDg3v4?cluster=devnet) · [4](https://explorer.solana.com/tx/5QmvzJTcAs7AjTJ7V5VWRmicPYxSwugz1JAFrYq1psKkDg1dqfKYxGUe9bzejNDPXWNrGu1ofQokS5jUEyWcg2un?cluster=devnet) |
+| **R1 (mejora)** Registrar venta con monto 0 | `MontoInvalido` (6004) | `MontoInvalido` | La venta PAN01 no existe; compras de Ana = 1 | [tx](https://explorer.solana.com/tx/21qomFErLvQGzqtVpCX35YZG7qAjXkuEk5VTs3SQ6EzpHjPEyfmDeoFfZUDqZXkb1K1dSEh7aq1bWpwbPX9vhWSt?cluster=devnet) |
+| **R2 (mejora)** Corregir importe a 0 | `MontoInvalido` (6004) | `MontoInvalido` | Monto de CAF01 sigue en 50 | [tx](https://explorer.solana.com/tx/2eDndHZVSRRE1e2VaPSN87JTHh7p3vdadNGqh8mYZp2jvAKgPphuZ2EMBao7rpSxKuUyxxEPaEqjtT2MBvKwZsvb?cluster=devnet) |
+| **R3** Wallet no autorizada corrige importe | `NoOwner` (6000) | `NoOwner` | Monto de CAF01 sigue en 50 | [tx](https://explorer.solana.com/tx/2gZv3884fbf1oyVKLBnSVx1zmgqvkyAEjtMnzQszxySeN32gbbyphHzev8MskA7GMiPyMm3hULM7kGUzeTS8Uw1a?cluster=devnet) |
+| **R4** Venta de Ana presentada como de Luis | `ConstraintSeeds` (2006) | `ConstraintSeeds` | La venta de Ana existe; compras de Ana = 1 | [tx](https://explorer.solana.com/tx/2Cfev4Z1EjnCXNNnPFCwSpT2WdRQhnB9Fwp4FbLeNJ2XcAzR4rqRtU2Dz1Th4487ukHhewxHycWNtQM7Fk473yHv?cluster=devnet) |
+| **R5** Baja de Ana con venta activa | `ClienteConVentas` (6002) | `ClienteConVentas` | Ana existe; 2 clientes; `id_counter` = 2 | [tx](https://explorer.solana.com/tx/2miDPoetvm1MvJ9hKXGAzR9X5T1uRpkKYv15oJLV3wJyUj3YutYMZ2u5JfVjXmzN1QDj4RRGuqWjwXNhfbCdwL6d?cluster=devnet) |
+| Devolución válida de CAF01 | ok | ok | — | [tx](https://explorer.solana.com/tx/3XBtjR1RN399Sx9UjNNz9XkCopFrisQEXGCnA2gDCygq1N9iX7htkuJnZ9x9xoXHTYJ4gKJHV4V8Y7uT75oLGYsQ?cluster=devnet) |
+| Baja válida de Ana | ok | ok | Ana cerrada; 1 cliente; `id_counter` = 2; Luis intacto | [tx](https://explorer.solana.com/tx/4hrUGPD8MhEUkhuERmPuwyniVMbfLxKon6UnLPQY9oCEapuMGDHx7UCR9hWjSPf2Z9sBxzuy9wCVqye8hoaKGokz?cluster=devnet) |
+| Crear Marta después de la baja | ok, ID 3 | ok, ID 3 | — | [tx](https://explorer.solana.com/tx/3y6zCmRbcDvQc8UPh9yLZvV3BiREpuVa1gCHgzKWvQ39yT36k7BXnJT1tNmViPJVACAqbHKcnQvsJUAiGXgwNwBa?cluster=devnet) |
 
-| Comando | Qué prepara |
-| --- | --- |
-| `npm run clase:dia3` | Pantalla de conexión para explorar wallet, RPC, saldos e IDL. Reserva Registro para el día siguiente. |
-| `npm run clase:dia4` | Pantalla del registro con dos funciones por completar: `crearCliente` y `registrarVenta`. |
-| `npm run clase:resuelto` | Las cinco operaciones implementadas, como referencia para estudiar y contrastar. |
+## Correspondencia con los criterios de acreditación
 
-Detén `npm run dev` antes de cambiar de modo y vuelve a iniciarlo al terminar.
+| Criterio | Dónde se demuestra |
+|---|---|
+| 1. Flujo funcional entre programa y frontend | Tabla A, casos 1 a 10, todos desde la app |
+| 2. Reglas de autoridad, pertenencia y cierre | R3 (autoridad), R4 (pertenencia), R5 y caso 8 (cierre condicionado), casos 6 y 9 (cierre válido) |
+| 3. Firma, confirmación, actualización y errores | Estados de firma y confirmación, recarga tras cada operación y mejora 3 (error real del programa) |
+| 4. Resultados reproducibles | Instrucciones de ejecución, script `pruebas_rechazo.ts` y links de Explorer |
+| 5. Aporte identificable | Baja de cliente, validación `MontoInvalido` (R1/R2) y simulación previa con errores traducidos |
 
-> **Guarda tu avance antes de cambiar de modo.** Estos comandos reemplazan `src/solana/acciones.ts`. Los cambios anteriores se respaldan en `.aula/respaldos/`; el IDL y el cliente generado se conservan. Puedes consultar la solución en `materiales/acciones-resuelto.ts.txt` sin reemplazar tu archivo.
+## Uso de IA
 
-## ¿Dónde está cada cosa?
-
-| Ruta | Qué encontrarás |
-| --- | --- |
-| `src/components/` | Pantallas y formularios de la aplicación. |
-| `src/solana/acciones.ts` | Funciones que conectan los formularios con las instrucciones del programa. |
-| `src/solana/lecturas.ts` | Lectura de Registro, Cliente y Venta. |
-| `src/solana/pdas.ts` y `seeds.ts` | Derivación de las direcciones de las cuentas. |
-| `src/solana/tx.ts` | Preparación, envío, confirmación y errores de las transacciones. |
-| `src/config/interfaz.ts` | Título y valores iniciales para personalizar la demo. |
-| `idl.json` | IDL utilizado para generar el cliente del programa. |
-| `clients/js/src/generated/` | Código generado con Codama; no se modifica a mano. |
-| `materiales/` | Versión de ejercicio y solución de las operaciones. |
-| `docs/` | Guías de configuración, pruebas y alcance del ejemplo. |
-
-La base utiliza **React + Vite**, **TypeScript**, **Wallet Adapter**, **Solana Kit**, **web3.js** y **Codama**. La integración entre las librerías ya está preparada para que puedas concentrarte en el flujo de cuentas e instrucciones.
-
-## Probar tus cambios
-
-```bash
-npm run verificar
-```
-
-Este comando comprueba TypeScript, ejecuta las pruebas automatizadas y genera el build del frontend. Las pruebas automatizadas **no envían transacciones**: completa también el recorrido de [pruebas manuales en Devnet](./docs/PRUEBAS-MANUALES.md).
-
-Para tu primera prueba, crea un negocio, agrega un cliente, registra una venta y consulta el resultado. Después prueba corregir el importe, devolver la venta y cancelar una solicitud de firma.
-
-## Si algo no funciona
-
-| Situación | Qué revisar |
-| --- | --- |
-| La wallet no aparece | Abre la app en una pestaña normal del navegador con una extensión compatible instalada. |
-| Falta SOL de prueba | Solicítalo en [Solana Faucet](https://faucet.solana.com/), seleccionando Devnet. |
-| No aparece tu negocio | Comprueba el nombre exacto y la dirección de su autoridad; ambos participan en la PDA. |
-| No puedes repetir un SKU | Cada cliente solo puede tener una venta activa con ese SKU. |
-| El RPC responde con un límite de uso | Espera y vuelve a intentar, o configura otro endpoint de Devnet en `.env.local` siguiendo `.env.example`. |
-| Cambiaste el IDL y falla la comprobación | Ejecuta `npm run cliente` y reinicia el servidor. |
-
-## Recursos y comunidad
-
-- [GitBook de Solana Engineering Track: Advanced](https://waylearn.gitbook.io/solana-engineering-track-advanced).
-- [Programa Registro de Ventas con PDAs](https://github.com/WayLearnLatam/Registro-Ventas-Solana-PDA).
-- [Solana Playground](https://beta.solpg.io/).
-- [Comunidad de WayLearn en Discord](https://discord.gg/hvnpbZxu9b).
-
-Este es un proyecto educativo para **Devnet**. Las validaciones del formulario no sustituyen las restricciones del programa. Revisa [seguridad y alcance](./docs/SEGURIDAD-Y-ALCANCE.md) para conocer los límites del ejemplo y los aspectos que deben revisarse antes de producción.
+Se usó un asistente de IA para apoyar la implementación y la redacción. Todos los cambios integrados se revisaron, se compilaron, se desplegaron en Devnet y se probaron con las operaciones documentadas arriba.

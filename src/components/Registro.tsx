@@ -6,13 +6,13 @@ import { NEGOCIO_INICIAL, UNIDAD_MONTO } from '../config/interfaz';
 import { leerRegistro, type RegistroUI } from '../solana/lecturas';
 import { negocioValido } from '../solana/validaciones';
 import { ErrorTransaccion, ErrorConfirmacionPendiente, enlaceTransaccion, traducir, type OpcionesEnvio } from '../solana/tx';
-import { crearRegistro, crearCliente, registrarVenta, cambiarMonto, hacerDevolucion } from '../solana/acciones';
+import { crearRegistro, crearCliente, registrarVenta, cambiarMonto, hacerDevolucion, eliminarCliente } from '../solana/acciones';
 
-type Operacion = 'registro' | 'cliente' | 'venta' | 'monto' | 'devolucion';
+type Operacion = 'registro' | 'cliente' | 'venta' | 'monto' | 'devolucion' | 'baja';
 const operaciones: { id: Operacion; texto: string }[] = [
   { id: 'registro', texto: 'Crear registro' }, { id: 'cliente', texto: 'Crear cliente' },
   { id: 'venta', texto: 'Registrar venta' }, { id: 'monto', texto: 'Corregir importe' },
-  { id: 'devolucion', texto: 'Devolución' },
+  { id: 'devolucion', texto: 'Devolución' }, { id: 'baja', texto: 'Baja de cliente' },
 ];
 
 export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcupado: (valor: boolean) => void }) {
@@ -76,6 +76,7 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
         case 'venta': resultado = await registrarVenta(wallet, connection, nombreNegocio, id, sku, descripcion, importe, opciones); break;
         case 'monto': resultado = await cambiarMonto(wallet, connection, nombreNegocio, id, sku, importe, opciones); break;
         case 'devolucion': resultado = await hacerDevolucion(wallet, connection, nombreNegocio, id, sku, opciones); break;
+        case 'baja': resultado = await eliminarCliente(wallet, connection, nombreNegocio, id, opciones); break;
       }
       setFirma(resultado); setFase('Operación confirmada correctamente.'); onCambio();
       try { await cargar(nombreNegocio, direccionWallet); }
@@ -120,6 +121,8 @@ export function Registro({ onCambio, onOcupado }: { onCambio: () => void; onOcup
             {op === 'venta' && <label>Descripción<input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required /></label>}
             {(op === 'venta' || op === 'monto') && <label>{op === 'monto' ? 'Nuevo importe' : 'Importe'}<input type="number" min="1" max="4294967295" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} required /><span className="help">Unidades enteras del ejercicio. No representa una transferencia de SOL.</span></label>}
             {op === 'devolucion' && <p className="notice subtle">Esta operación quita la venta del historial y cierra su cuenta. No realiza un reembolso comercial.</p>}
+            {op === 'baja' && <label>ID del cliente<input type="number" min="1" max="65535" step="1" value={idCliente} onChange={(e) => setIdCliente(e.target.value)} required /></label>}
+            {op === 'baja' && <p className="notice subtle">Cierra la cuenta del cliente y lo retira del registro. El programa la rechaza si el cliente tiene ventas activas. El contador de IDs no retrocede.</p>}
             <button className="button primary" type="submit" disabled={!negocio.trim()}>{ocupado ? 'Operación en curso…' : operaciones.find((item) => item.id === op)!.texto}</button>
           </fieldset>
         </form>

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("");
+declare_id!("AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF");
 
 #[program]
 pub mod registro {
@@ -57,6 +57,10 @@ pub mod registro {
         descripcion: String,
         monto: u32,
     ) -> Result<()> {
+        // MEJORA (Ruta B): regla de negocio. Una venta con monto 0 no tiene sentido.
+        // max_len solo reserva espacio; las reglas de negocio se validan aqui.
+        require!(monto > 0, Errores::MontoInvalido);
+
         context.accounts.venta.set_inner(Venta {
             sku,
             descripcion,
@@ -115,6 +119,9 @@ pub mod registro {
         sku: String,
         nuevo_monto: u32,
     ) -> Result<()> {
+        // MEJORA (Ruta B): la misma regla aplica al corregir el importe.
+        require!(nuevo_monto > 0, Errores::MontoInvalido);
+
         let venta = &mut context.accounts.venta;
         let viejo_monto = venta.monto;
         venta.monto = nuevo_monto;
@@ -128,15 +135,56 @@ pub mod registro {
 
         Ok(())
     }
+
+    /////////////////////////// Eliminar Cliente (Dia 5) ///////////////////////////
+    // Baja de cliente. El contexto EliminarCliente lleva "close = owner": si el handler termina
+    // sin error, la cuenta del cliente se cierra y su rent vuelve al owner.
+    // Todo ocurre en una sola instruccion: si una validacion falla, no cambia nada (atomicidad).
+    pub fn eliminar_cliente(context: Context<EliminarCliente>, id_cliente: u16) -> Result<()> {
+        let cliente_key = context.accounts.cliente.key(); // Se lee ANTES del &mut de registro
+        let cliente = &context.accounts.cliente;
+
+        // Precondicion: el cliente no puede tener ventas activas.
+        require!(
+            cliente.historial.is_empty() && cliente.compras == 0,
+            Errores::ClienteConVentas
+        );
+
+        let registro = &mut context.accounts.registro;
+
+        // Pertenencia: el cliente debe estar en el indice del registro.
+        let posicion = registro
+            .clientes
+            .iter()
+            .position(|&k| k == cliente_key)
+            .ok_or(Errores::ClienteNoRegistrado)?;
+
+        // Se retira SOLO la direccion de este cliente.
+        registro.clientes.remove(posicion);
+
+        // id_counter NO se modifica: los ids no se reutilizan. El siguiente cliente
+        // recibira el ultimo id asignado + 1, aunque se hayan dado bajas.
+
+        msg!("Cliente con id: {} dado de baja", id_cliente);
+
+        Ok(())
+    }
 }
 
 /////////////////////////// Codigos de Error ///////////////////////////
+// Los errores existentes conservan su orden; los nuevos se agregan al final.
 #[error_code]
 pub enum Errores {
     #[msg("Error, no eres el owner del registro")]
     NoOwner,
     #[msg("Error, la venta no esta en el historial del cliente")]
     NoSKU,
+    #[msg("Error, el cliente tiene ventas activas y no puede darse de baja")]
+    ClienteConVentas,
+    #[msg("Error, el cliente no esta en el registro")]
+    ClienteNoRegistrado,
+    #[msg("Error, el monto debe ser mayor a 0")]
+    MontoInvalido,
 }
 
 /////////////////////////// CUENTAS ///////////////////////////
@@ -331,4 +379,26 @@ pub struct EliminarVenta<'info> {
         bump
     )]
     pub venta: Account<'info, Venta>,
+}
+
+/////////////////////////// Eliminar Cliente ///////////////////////////
+/// Instruccion: eliminar_cliente -> cierra la cuenta del cliente
+
+#[derive(Accounts)]
+#[instruction(id_cliente: u16)]
+pub struct EliminarCliente<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>, // mut: recibe el rent de la cuenta cerrada
+
+    #[account(mut, has_one = owner @ Errores::NoOwner)]
+    pub registro: Account<'info, Registro>, // mut: se retira la direccion del cliente del indice
+
+    #[account(
+        mut,
+        close = owner,
+        // Mismas seeds que el resto del proyecto: el cliente debe derivarse de ESTE registro
+        seeds = [b"cliente", registro.key().as_ref(), id_cliente.to_le_bytes().as_ref()],
+        bump
+    )]
+    pub cliente: Account<'info, Cliente>,
 }

@@ -3,6 +3,7 @@ import type { Connection } from '@solana/web3.js';
 import {
   getCrearRegistroInstruction, getCrearClienteInstruction,
   getRegistrarVentaInstruction, getCambiarMontoInstruction, getHacerDevolucionInstruction,
+  getEliminarClienteInstruction,
 } from '../../clients/js/src/generated';
 import { cadena, pdaCliente, pdaRegistro } from './pdas';
 import { siguienteId } from './lecturas';
@@ -74,5 +75,20 @@ export async function hacerDevolucion(wallet: WalletFirma, connection: Connectio
   const owner = firmante(wallet);
   const { registro, cliente, venta } = cadena(nombreNegocio, owner.address, idCliente, sku);
   const ix = getHacerDevolucionInstruction({ owner, registro, cliente, venta, idCliente, sku });
+  return enviar(ix, wallet, connection, opciones);
+}
+
+/**
+ * Día 5: baja de cliente. No requiere SKU.
+ * El programa valida autoridad, pertenencia y que el cliente no tenga ventas activas;
+ * aquí no se replica esa regla para que el rechazo lo demuestre el propio programa.
+ */
+export async function eliminarCliente(wallet: WalletFirma, connection: Connection, nombreNegocio: string, idCliente: number, opciones?: OpcionesEnvio): Promise<string> {
+  nombreNegocio = negocioValido(nombreNegocio);
+  idCliente = idValido(idCliente);
+  const owner = firmante(wallet);
+  const registro = pdaRegistro(nombreNegocio, owner.address);
+  const cliente = pdaCliente(registro, idCliente);
+  const ix = getEliminarClienteInstruction({ owner, registro, cliente, idCliente });
   return enviar(ix, wallet, connection, opciones);
 }

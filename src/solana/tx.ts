@@ -1,6 +1,6 @@
 import { AccountRole, type Address, type ReadonlyUint8Array } from '@solana/kit';
 import type { WalletContextState } from '@solana/wallet-adapter-react';
-import { Connection, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, TransactionInstruction, VersionedTransaction } from '@solana/web3.js';
 import idl from '../../idl.json';
 import { REGISTRO_PROGRAM_ADDRESS } from '../../clients/js/src/generated';
 import { comprobarPrograma } from './seguridad';
@@ -43,6 +43,18 @@ export class ErrorConfirmacionPendiente extends Error {
   }
 }
 
+/**
+ * Rechazo detectado al simular la transacción contra el programa desplegado.
+ * Conserva los logs para que traducir() muestre el error real del programa
+ * (algunas wallets solo devuelven "Internal error" cuando su simulación falla).
+ */
+export class ErrorSimulacion extends Error {
+  constructor(public readonly resultado: unknown, public readonly logs: string[]) {
+    super('El programa rechazó la operación en la simulación: ' + JSON.stringify(resultado));
+    this.name = 'ErrorSimulacion';
+  }
+}
+
 export async function confirmarEnvio(
   connection: Pick<Connection, 'confirmTransaction'>,
   estrategia: { signature: string; blockhash: string; lastValidBlockHeight: number },
@@ -65,6 +77,13 @@ export async function enviar(
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   const tx = new Transaction({ feePayer: wallet.publicKey, blockhash, lastValidBlockHeight });
   tx.add(aWeb3(ix));
+  // Simulación previa: el programa se ejecuta sin firmas ni cambios de estado.
+  // Si rechaza, se muestra su error real en lugar del mensaje genérico de la wallet.
+  const simulacion = await connection.simulateTransaction(
+    new VersionedTransaction(tx.compileMessage()),
+    { sigVerify: false, commitment: 'confirmed' },
+  );
+  if (simulacion.value.err) throw new ErrorSimulacion(simulacion.value.err, simulacion.value.logs ?? []);
   opciones.onEstado?.('firma');
   const firma = await wallet.sendTransaction(tx, connection, { preflightCommitment: 'confirmed' });
   opciones.onEstado?.('confirmacion');

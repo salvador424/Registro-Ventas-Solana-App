@@ -1,0 +1,67 @@
+Running client...
+  client.ts:
+    Programa: AAXbCn12Pp2pSpudogSgU1TF67j9JhPBu15uN89dFcWF
+    Autoridad de pruebas: n7ZGjfmJCCaYsKSLsVLrkGyfJoBH327oMdQuvQZXkSf
+    Negocio: Pruebas 49061 -> 8fCNVSL5M58SCvpMhkpQi2d9Q5QYNvfvzyiLzxn7onuP
+    
+[OK] Crear registro
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/5aAwRKtACHAEkzQDydfH8xdtt1ioQRi3Gzy5UJfvAWAXAioZpoMe3MQPqDdAe4gWV9Ycm8wNCZHxsxQ7JzYqZicv?cluster=devnet
+    
+[OK] Crear cliente #1 Ana
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/3CaQpkeiD4TAK4R2rKLNtiJ2a8gF7b2Yy9MS7M2MAUBD6noV6gadxQSzPeLWt5cywM1RN6J7YrhWnh7Mynhuap4S?cluster=devnet
+    
+[OK] Crear cliente #2 Luis
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/5o3dBtuzSmfAD9F8wx48Vx85akkzbLh7oduMscWJsKzA6KKsjTpRQXSQrjCtGJZtqYWznyqhBgUWWHE29ycDg3v4?cluster=devnet
+    
+[OK] Registrar venta CAF01 (50) a Ana
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/5QmvzJTcAs7AjTJ7V5VWRmicPYxSwugz1JAFrYq1psKkDg1dqfKYxGUe9bzejNDPXWNrGu1ofQokS5jUEyWcg2un?cluster=devnet
+    
+[OK] R1 (mejora) Registrar venta con monto 0
+      Esperado: MontoInvalido | Obtenido: MontoInvalido
+      AnchorError thrown in 3dc1b5f8-fb39-4b46-b52a-e32cc70220fb/src/lib.rs:62. Error Code: MontoInvalido. Error Number: 6004. Error Message: Error, el monto debe ser mayor a 0.
+      https://explorer.solana.com/tx/21qomFErLvQGzqtVpCX35YZG7qAjXkuEk5VTs3SQ6EzpHjPEyfmDeoFfZUDqZXkb1K1dSEh7aq1bWpwbPX9vhWSt?cluster=devnet
+      Estado: venta PAN01 existe = false | compras de Ana = 1
+    
+[OK] R2 (mejora) Corregir importe a 0
+      Esperado: MontoInvalido | Obtenido: MontoInvalido
+      AnchorError thrown in 3dc1b5f8-fb39-4b46-b52a-e32cc70220fb/src/lib.rs:123. Error Code: MontoInvalido. Error Number: 6004. Error Message: Error, el monto debe ser mayor a 0.
+      https://explorer.solana.com/tx/2eDndHZVSRRE1e2VaPSN87JTHh7p3vdadNGqh8mYZp2jvAKgPphuZ2EMBao7rpSxKuUyxxEPaEqjtT2MBvKwZsvb?cluster=devnet
+      Estado: monto de CAF01 = 50
+    
+[OK] R3 Wallet no autorizada intenta corregir importe
+      Esperado: NoOwner | Obtenido: NoOwner
+      AnchorError caused by account: registro. Error Code: NoOwner. Error Number: 6000. Error Message: Error, no eres el owner del registro.
+      https://explorer.solana.com/tx/2gZv3884fbf1oyVKLBnSVx1zmgqvkyAEjtMnzQszxySeN32gbbyphHzev8MskA7GMiPyMm3hULM7kGUzeTS8Uw1a?cluster=devnet
+      Estado: monto de CAF01 = 50
+    
+[OK] R4 Devolucion con venta de Ana presentada como de Luis
+      Esperado: ConstraintSeeds | Obtenido: ConstraintSeeds
+      AnchorError caused by account: venta. Error Code: ConstraintSeeds. Error Number: 2006. Error Message: A seeds constraint was violated.
+      https://explorer.solana.com/tx/2Cfev4Z1EjnCXNNnPFCwSpT2WdRQhnB9Fwp4FbLeNJ2XcAzR4rqRtU2Dz1Th4487ukHhewxHycWNtQM7Fk473yHv?cluster=devnet
+      Estado: venta de Ana existe = true | compras de Ana = 1
+$     
+[OK] R5 Baja de Ana con una venta activa
+      Esperado: ClienteConVentas | Obtenido: ClienteConVentas
+      AnchorError thrown in 3dc1b5f8-fb39-4b46-b52a-e32cc70220fb/src/lib.rs:148. Error Code: ClienteConVentas. Error Number: 6002. Error Message: Error, el cliente tiene ventas activas y no puede darse de baja.
+      https://explorer.solana.com/tx/2miDPoetvm1MvJ9hKXGAzR9X5T1uRpkKYv15oJLV3wJyUj3YutYMZ2u5JfVjXmzN1QDj4RRGuqWjwXNhfbCdwL6d?cluster=devnet
+$       Estado: Ana existe = true | clientes en registro = 2 | id_counter = 2
+    
+[OK] Devolucion valida de CAF01 (Ana)
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/3XBtjR1RN399Sx9UjNNz9XkCopFrisQEXGCnA2gDCygq1N9iX7htkuJnZ9x9xoXHTYJ4gKJHV4V8Y7uT75oLGYsQ?cluster=devnet
+    
+[OK] Baja valida de Ana (sin ventas)
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/4hrUGPD8MhEUkhuERmPuwyniVMbfLxKon6UnLPQY9oCEapuMGDHx7UCR9hWjSPf2Z9sBxzuy9wCVqye8hoaKGokz?cluster=devnet
+      Estado: Ana existe = false | clientes en registro = 1 | id_counter = 2 | Luis conserva datos = Luis
+    
+[OK] Crear cliente Marta despues de la baja
+      Esperado: ok | Obtenido: ok
+      https://explorer.solana.com/tx/3y6zCmRbcDvQc8UPh9yLZvV3BiREpuVa1gCHgzKWvQ39yT36k7BXnJT1tNmViPJVACAqbHKcnQvsJUAiGXgwNwBa?cluster=devnet
+      Estado: id de Marta = 3 (esperado 3)
+    
+Pruebas terminadas.
